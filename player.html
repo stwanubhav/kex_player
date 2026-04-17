@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>KEX Player | Premium Video Experience</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --kex-primary: #e91e63;
+            --kex-secondary: #ff6d00;
+            --kex-accent: #00bcd4;
+            --kex-dark: #0a0c10;
+            --kex-card: #14181f;
+            --kex-text: #f1f5f9;
+            --kex-control-bg: rgba(0, 0, 0, 0.75);
+            --kex-glow: rgba(233, 30, 99, 0.4);
+            --kex-transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+
+        body {
+            background: linear-gradient(145deg, #0b0d12 0%, #050608 100%);
+            color: var(--kex-text);
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* modern glass header */
+        header {
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            color: var(--kex-primary);
+            filter: drop-shadow(0 0 6px var(--kex-glow));
+        }
+
+        .logo-text {
+            font-size: 26px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 20%, #ff80ab 80%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+        }
+
+        .nav-link {
+            color: #ccc;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--kex-transition);
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover {
+            color: var(--kex-primary);
+            text-shadow: 0 0 4px rgba(233, 30, 99, 0.5);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 8px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--kex-transition);
+            font-size: 0.85rem;
+        }
+
+        .action-btn.primary {
+            background: var(--kex-primary);
+            border: none;
+            box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);
+        }
+
+        .action-btn:hover {
+            background: var(--kex-primary);
+            transform: translateY(-2px);
+        }
+
+        /* main container */
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px 40px;
+        }
+
+        /* premium player wrapper */
+        .player-wrapper {
+            width: 100%;
+            max-width: 1100px;
+            border-radius: 28px;
+            background: #00000066;
+            backdrop-filter: blur(2px);
+            box-shadow: 0 25px 45px -12px black;
+        }
+
+        .player-container {
+            width: 100%;
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.6);
+            transition: box-shadow 0.3s;
+        }
+
+        .video-container {
+            position: relative;
+            padding-top: 56.25%;
+            background: #000;
+        }
+
+        .video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        /* floating controls - glassmorphism */
+        .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 100%);
+            backdrop-filter: blur(12px);
+            padding: 12px 18px;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.3s ease, opacity 0.3s;
+            z-index: 30;
+            opacity: 0;
+            pointer-events: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .player-container:hover .controls,
+        .player-container.controls-visible .controls {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .progress-area {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+            transition: height 0.1s;
+        }
+
+        .progress-container:hover {
+            height: 7px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--kex-primary), var(--kex-secondary));
+            width: 0%;
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 38px;
+            height: 38px;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--kex-transition);
+            backdrop-filter: blur(4px);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .play-btn {
+            background: var(--kex-primary);
+            box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+        }
+
+        .time-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 10px;
+            border-radius: 30px;
+            letter-spacing: 0.5px;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+            transition: width 0.2s;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--kex-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 6px #e91e63;
+        }
+
+        /* speed & quality menus */
+        .speed-options, .quality-options {
+            position: relative;
+        }
+
+        .speed-menu, .quality-menu {
+            position: absolute;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 24, 31, 0.96);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 8px 0;
+            min-width: 100px;
+            display: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 40;
+        }
+
+        .speed-menu.show, .quality-menu.show {
+            display: block;
+        }
+
+        .speed-option, .quality-option {
+            color: #eee;
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .speed-option:hover, .quality-option:hover {
+            background: var(--kex-primary);
+            color: white;
+        }
+
+        .speed-option.active, .quality-option.active {
+            color: var(--kex-primary);
+            font-weight: bold;
+            background: rgba(233, 30, 99, 0.2);
+        }
+
+        /* title overlay */
+        .title-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.25s;
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        .player-container:hover .title-bar,
+        .player-container.controls-visible .title-bar {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .video-title {
+            font-weight: 600;
+            font-size: 1rem;
+            text-shadow: 0 1px 4px black;
+            background: rgba(0,0,0,0.4);
+            padding: 4px 12px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+        }
+
+        .close-btn {
+            background: rgba(0,0,0,0.5);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 40px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        /* loading spinner */
+        .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top: 4px solid var(--kex-primary);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            display: none;
+            z-index: 20;
+        }
+
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        /* footer premium */
+        footer {
+            background: #030507;
+            padding: 32px 20px 24px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 20px;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #ff80ab);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin: 18px 0;
+        }
+
+        .footer-link {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover { color: var(--kex-primary); }
+
+        /* responsive & fullscreen */
+        @media (max-width: 720px) {
+            header { padding: 12px 18px; }
+            .logo-text { font-size: 20px; }
+            .nav-links { gap: 14px; }
+            .control-btn { width: 34px; height: 34px; font-size: 16px; }
+            .time-display { font-size: 11px; }
+            .volume-slider { width: 70px; }
+            .speed-menu, .quality-menu { bottom: 42px; }
+        }
+
+        @media (max-width: 550px) {
+            .header-actions .action-btn { padding: 5px 12px; font-size: 12px; }
+            .nav-link { font-size: 13px; }
+            .controls { padding: 8px 12px; }
+            .control-buttons { gap: 4px; }
+        }
+
+        .player-container.fullscreen-active {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            z-index: 9999;
+            background: black;
+        }
+        .player-container.fullscreen-active .video-container {
+            padding-top: 0;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="logo">
+        <div class="logo-icon"><i class="fas fa-bolt"></i></div>
+        <div class="logo-text">KEX PLAYER</div>
+    </div>
+    <nav class="nav-links">
+        <a href="#" class="nav-link">Explore</a>
+        <a href="#" class="nav-link">Series</a>
+        <a href="#" class="nav-link">Originals</a>
+        <a href="#" class="nav-link">Kex+</a>
+    </nav>
+    <div class="header-actions">
+        <button class="action-btn">Sign In</button>
+        <button class="action-btn primary">Subscribe</button>
+    </div>
+</header>
+
+<main>
+    <div class="player-wrapper">
+        <div class="player-container" id="playerContainer">
+            <div class="video-container">
+                <video class="video-player" id="videoPlayer" preload="metadata" playsinline></video>
+                <div class="spinner" id="spinner"></div>
+                <div class="title-bar">
+                    <div class="video-title" id="videoTitle">KEX Cinema · Ultra HD Sample</div>
+                    <button class="close-btn" id="closeBtn"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="controls" id="controls">
+                <div class="progress-area">
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+                <div class="control-buttons">
+                    <div class="left-controls">
+                        <button class="control-btn play-btn" id="playBtn"><i class="fas fa-play" id="playIcon"></i></button>
+                        <div class="time-display"><span id="currentTime">00:00</span> / <span id="duration">00:00</span></div>
+                    </div>
+                    <div class="right-controls">
+                        <div class="speed-options">
+                            <button class="control-btn speed-btn" id="speedBtn"><i class="fas fa-gauge-high"></i></button>
+                            <div class="speed-menu" id="speedMenu">
+                                <div class="speed-option" data-speed="0.5">0.5x</div>
+                                <div class="speed-option" data-speed="0.75">0.75x</div>
+                                <div class="speed-option active" data-speed="1">1x</div>
+                                <div class="speed-option" data-speed="1.25">1.25x</div>
+                                <div class="speed-option" data-speed="1.5">1.5x</div>
+                                <div class="speed-option" data-speed="2">2x</div>
+                            </div>
+                        </div>
+                        <div class="quality-options">
+                            <button class="control-btn quality-btn" id="qualityBtn"><i class="fas fa-sliders-h"></i></button>
+                            <div class="quality-menu" id="qualityMenu">
+                                <div class="quality-option active" data-quality="auto">Auto HD</div>
+                                <div class="quality-option" data-quality="720">720p</div>
+                                <div class="quality-option" data-quality="480">480p</div>
+                            </div>
+                        </div>
+                        <div class="volume-container">
+                            <button class="control-btn volume-btn" id="volumeBtn"><i class="fas fa-volume-up" id="volumeIcon"></i></button>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
+                        </div>
+                        <button class="control-btn fullscreen-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="footer-content">
+        <div class="footer-logo">KEX PLAYER</div>
+        <div class="footer-links">
+            <a href="#" class="footer-link">About Kex</a>
+            <a href="#" class="footer-link">Devices</a>
+            <a href="#" class="footer-link">Privacy</a>
+            <a href="#" class="footer-link">Terms</a>
+            <a href="#" class="footer-link">Support</a>
+        </div>
+        <div class="copyright">&copy; 2025 KEX Player — Cinematic immersion, everywhere.</div>
+    </div>
+</footer>
+
+<script>
+    (function() {
+        // ----- DOM elements -----
+        const video = document.getElementById('videoPlayer');
+        const container = document.getElementById('playerContainer');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
+        const currentSpan = document.getElementById('currentTime');
+        const durationSpan = document.getElementById('duration');
+        const volumeBtn = document.getElementById('volumeBtn');
+        const volumeIcon = document.getElementById('volumeIcon');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const speedBtn = document.getElementById('speedBtn');
+        const speedMenu = document.getElementById('speedMenu');
+        const speedOptions = document.querySelectorAll('.speed-option');
+        const qualityBtn = document.getElementById('qualityBtn');
+        const qualityMenu = document.getElementById('qualityMenu');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const spinner = document.getElementById('spinner');
+        const closeBtn = document.getElementById('closeBtn');
+        const videoTitleSpan = document.getElementById('videoTitle');
+        
+        // ----- video source (same dropbox link but reliable) -----
+        const dropboxRaw = 'https://www.dropbox.com/scl/fi/gb5ivkvjfaozs1bu4n8do/trailer-_your_name._-_makoto_shinkai-720p.mp4?rlkey=hs9a2slw5dqor6qp9g29ttyhq&st=5uj3nmf3&dl=1';
+        const directLink = dropboxRaw.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+        video.src = directLink;
+        videoTitleSpan.textContent = '🎬 KEX Exclusive: Masterpiece Trailer';
+        
+        // disable native controls & context menu
+        video.controls = false;
+        
+        // ----- device detection & touch enhancements -----
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // ----- auto hide timer variables -----
+        let controlsTimeout;
+        let controlsVisible = false;
+        let isMouseMoving = false;
+        let isSeeking = false;
+        let hideDelay = isMobile ? 4000 : 3000;
+        
+        // helper functions
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function showControls() {
+            if (!controlsVisible) {
+                container.classList.add('controls-visible');
+                controlsVisible = true;
+            }
+            resetHideTimer();
+        }
+        
+        function hideControls() {
+            if (controlsVisible && !video.paused && !isMouseMoving && !isSeeking) {
+                container.classList.remove('controls-visible');
+                controlsVisible = false;
+            }
+        }
+        
+        function resetHideTimer() {
+            clearTimeout(controlsTimeout);
+            controlsTimeout = setTimeout(() => {
+                hideControls();
+            }, hideDelay);
+        }
+        
+        // update UI
+        function updateProgress() {
+            if (video.duration) {
+                const percent = (video.currentTime / video.duration) * 100;
+                progressBar.style.width = `${percent}%`;
+                currentSpan.textContent = formatTime(video.currentTime);
+            }
+        }
+        
+        function seek(e) {
+            const rect = progressContainer.getBoundingClientRect();
+            let clickX;
+            if (e.type === 'click' || e.type === 'mousemove') {
+                clickX = e.clientX - rect.left;
+            } else if (e.touches) {
+                clickX = e.touches[0].clientX - rect.left;
+            } else {
+                return;
+            }
+            let percent = clickX / rect.width;
+            percent = Math.min(1, Math.max(0, percent));
+            if (video.duration) {
+                video.currentTime = percent * video.duration;
+            }
+            showControls();
+        }
+        
+        // play/pause
+        function togglePlay() {
+            if (video.paused) {
+                video.play().then(() => {
+                    playIcon.classList.remove('fa-play');
+                    playIcon.classList.add('fa-pause');
+                }).catch(e => console.warn("autoplay blocked?", e));
+            } else {
+                video.pause();
+                playIcon.classList.remove('fa-pause');
+                playIcon.classList.add('fa-play');
+            }
+            showControls();
+        }
+        
+        // volume & mute
+        function updateVolumeUI() {
+            if (video.muted || video.volume === 0) {
+                volumeIcon.classList.remove('fa-volume-up', 'fa-volume-down');
+                volumeIcon.classList.add('fa-volume-mute');
+                volumeSlider.value = 0;
+            } else {
+                if (video.volume > 0.5) volumeIcon.classList.remove('fa-volume-mute', 'fa-volume-down');
+                else if (video.volume > 0) volumeIcon.classList.remove('fa-volume-mute', 'fa-volume-up');
+                volumeIcon.classList.add(video.volume > 0.5 ? 'fa-volume-up' : 'fa-volume-down');
+                volumeSlider.value = video.volume;
+            }
+        }
+        
+        function toggleMute() {
+            if (video.muted) {
+                video.muted = false;
+                if (video.volume === 0) video.volume = 0.8;
+                updateVolumeUI();
+            } else {
+                video.muted = true;
+                updateVolumeUI();
+            }
+            showControls();
+        }
+        
+        // fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => console.warn(err));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // event listeners
+        playBtn.addEventListener('click', togglePlay);
+        video.addEventListener('click', () => { showControls(); });
+        video.addEventListener('timeupdate', updateProgress);
+        video.addEventListener('loadedmetadata', () => {
+            durationSpan.textContent = formatTime(video.duration);
+            if (video.readyState >= 2) spinner.style.display = 'none';
+        });
+        video.addEventListener('waiting', () => { spinner.style.display = 'block'; });
+        video.addEventListener('playing', () => { spinner.style.display = 'none'; });
+        
+        progressContainer.addEventListener('click', (e) => { seek(e); showControls(); });
+        progressContainer.addEventListener('mousemove', (e) => { if (isSeeking) seek(e); });
+        progressContainer.addEventListener('mousedown', () => { isSeeking = true; showControls(); });
+        window.addEventListener('mouseup', () => { isSeeking = false; resetHideTimer(); });
+        
+        // touch seek for mobile
+        if (isTouch) {
+            progressContainer.addEventListener('touchstart', (e) => { isSeeking = true; seek(e); e.preventDefault(); });
+            progressContainer.addEventListener('touchmove', (e) => { if (isSeeking) { seek(e); e.preventDefault(); } });
+            progressContainer.addEventListener('touchend', () => { isSeeking = false; resetHideTimer(); });
+        }
+        
+        volumeSlider.addEventListener('input', (e) => {
+            video.volume = parseFloat(e.target.value);
+            video.muted = false;
+            updateVolumeUI();
+            showControls();
+        });
+        volumeBtn.addEventListener('click', toggleMute);
+        
+        // speed controls
+        speedBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speedMenu.classList.toggle('show');
+            qualityMenu.classList.remove('show');
+            showControls();
+        });
+        speedOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                const speedVal = parseFloat(opt.getAttribute('data-speed'));
+                video.playbackRate = speedVal;
+                speedOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                speedMenu.classList.remove('show');
+                showControls();
+                e.stopPropagation();
+            });
+        });
+        
+        // quality menu (simulated)
+        qualityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            qualityMenu.classList.toggle('show');
+            speedMenu.classList.remove('show');
+            showControls();
+        });
+        qualityOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                qualityOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                qualityMenu.classList.remove('show');
+                showControls();
+                e.stopPropagation();
+            });
+        });
+        
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                container.classList.add('fullscreen-active');
+                hideDelay = 4000;
+            } else {
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                container.classList.remove('fullscreen-active');
+                hideDelay = isMobile ? 4000 : 3000;
+                showControls();
+            }
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else console.log('KEX Player ready');
+        });
+        
+        // mouse movement for desktop
+        container.addEventListener('mousemove', () => {
+            isMouseMoving = true;
+            showControls();
+            setTimeout(() => { isMouseMoving = false; }, 800);
+        });
+        container.addEventListener('mouseleave', () => {
+            if (!video.paused) {
+                container.classList.remove('controls-visible');
+                controlsVisible = false;
+            }
+        });
+        container.addEventListener('mouseenter', showControls);
+        
+        // keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            const key = e.key;
+            if (key === ' ' || key === 'k') { togglePlay(); e.preventDefault(); }
+            else if (key === 'm') { toggleMute(); e.preventDefault(); }
+            else if (key === 'f') { toggleFullscreen(); e.preventDefault(); }
+            else if (key === 'ArrowLeft') { video.currentTime = Math.max(0, video.currentTime - 5); showControls(); e.preventDefault(); }
+            else if (key === 'ArrowRight') { video.currentTime = Math.min(video.duration, video.currentTime + 5); showControls(); e.preventDefault(); }
+            else if (key === 'ArrowUp') { video.volume = Math.min(1, video.volume + 0.1); updateVolumeUI(); showControls(); e.preventDefault(); }
+            else if (key === 'ArrowDown') { video.volume = Math.max(0, video.volume - 0.1); updateVolumeUI(); showControls(); e.preventDefault(); }
+        });
+        
+        // disable context menu & download protection
+        container.addEventListener('contextmenu', (e) => { e.preventDefault(); return false; });
+        video.addEventListener('dragstart', (e) => e.preventDefault());
+        
+        // initial volume & show controls
+        video.volume = 0.8;
+        updateVolumeUI();
+        showControls();
+        
+        // Prevent long-press download on mobile
+        if (isTouch) {
+            let longTouchTimer;
+            container.addEventListener('touchstart', (e) => {
+                longTouchTimer = setTimeout(() => {
+                    alert('KEX Player: Downloads are disabled');
+                }, 700);
+                showControls();
+            });
+            container.addEventListener('touchend', () => clearTimeout(longTouchTimer));
+            container.addEventListener('touchmove', () => clearTimeout(longTouchTimer));
+        }
+        
+        // click outside to close menus
+        document.addEventListener('click', (e) => {
+            if (!speedBtn.contains(e.target) && !speedMenu.contains(e.target)) speedMenu.classList.remove('show');
+            if (!qualityBtn.contains(e.target) && !qualityMenu.contains(e.target)) qualityMenu.classList.remove('show');
+        });
+        
+        console.log('KEX Player initialized — premium interface ready');
+    })();
+</script>
+</body>
+</html>

@@ -188,91 +188,68 @@
             margin-bottom: 10px;
         }
 
-/* ===== PROGRESS BAR UPGRADE ===== */
-.progress-container {
-    width: 100%;
-    height: 4px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 10px;
-    cursor: pointer;
-    position: relative;
-    transition: height 0.2s ease;
-}
+        .progress-container {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+            transition: height 0.1s;
+        }
 
-.progress-container:hover {
-    height: 8px;
-}
+        .progress-container:hover {
+            height: 7px;
+        }
 
-.progress-buffer {
-    position: absolute;
-    height: 100%;
-    width: 0%;
-    background: rgba(255,255,255,0.3);
-    border-radius: 10px;
-}
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--kex-primary), var(--kex-secondary));
+            width: 0%;
+            border-radius: 5px;
+            position: relative;
+        }
 
-.progress-bar {
-    height: 100%;
-    width: 0%;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #ff004c, #ff7a00);
-    position: relative;
-    transition: width 0.1s linear;
-}
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
 
-/* Thumb */
-.progress-bar::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translate(50%, -50%) scale(0);
-    width: 12px;
-    height: 12px;
-    background: #ff004c;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #ff004c;
-    transition: transform 0.2s ease;
-}
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
 
-.progress-container:hover .progress-bar::after {
-    transform: translate(50%, -50%) scale(1);
-}
+        .control-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 38px;
+            height: 38px;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--kex-transition);
+        }
 
-/* ===== CONTROLS UPGRADE ===== */
-.controls {
-    background: linear-gradient(
-        to top,
-        rgba(0,0,0,0.95),
-        rgba(0,0,0,0.6),
-        transparent
-    );
-    backdrop-filter: blur(20px);
-    padding: 14px 20px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-}
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
 
-/* Buttons */
-.control-btn {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    backdrop-filter: blur(10px);
-    transition: all 0.2s ease;
-}
+        .play-btn {
+            background: var(--kex-primary);
+            box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+        }
 
-.control-btn:hover {
-    background: rgba(255,255,255,0.2);
-    transform: scale(1.08);
-}
-
-/* Play button glow */
-.play-btn {
-    background: rgba(255,255,255,0.15);
-    box-shadow: 0 0 20px rgba(255,255,255,0.2);
-}
         .time-display {
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
@@ -521,9 +498,8 @@
             <div class="controls" id="controls">
                 <div class="progress-area">
                     <div class="progress-container" id="progressContainer">
-    <div class="progress-buffer" id="progressBuffer"></div>
-    <div class="progress-bar" id="progressBar"></div>
-</div>
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
                 </div>
                 <div class="control-buttons">
                     <div class="left-controls">
@@ -911,20 +887,6 @@
             if (!speedBtn.contains(e.target) && !speedMenu.contains(e.target)) speedMenu.classList.remove('show');
             if (!qualityBtn.contains(e.target) && !qualityMenu.contains(e.target)) qualityMenu.classList.remove('show');
         });
-
-        const bufferBar = document.getElementById('progressBuffer');
-
-video.addEventListener('progress', () => {
-    if (video.buffered.length > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        const duration = video.duration;
-
-        if (duration > 0) {
-            const percent = (bufferedEnd / duration) * 100;
-            bufferBar.style.width = percent + "%";
-        }
-    }
-});
         
         console.log('✅ KEX Player: Quality Control & Fullscreen fully operational');
     })();

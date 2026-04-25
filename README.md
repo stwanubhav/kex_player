@@ -78,7 +78,7 @@ KEX-Player/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/kex-player.git
+   git clone https://github.com/stwanubhav/kex_player.git
 ````
 
 2. Open the file:

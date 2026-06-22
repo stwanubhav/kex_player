@@ -1,5 +1,5 @@
 /* ============================================================
-   🎬 PRO VIDEO PLAYER - Core Logic
+   🎬 PRO VIDEO PLAYER - Core Logic (Fully Fixed)
    ============================================================ */
 
 (function() {
@@ -64,7 +64,12 @@
         errorCount: 0,
         currentUrlIndex: 0,
         isRecovering: false,
-        posterHidden: false
+        posterHidden: false,
+        controlsVisible: true,
+        controlsTimeout: null,
+        isMouseMoving: false,
+        mouseMoveTimeout: null,
+        isHoveringControls: false
     };
     
     // ============================================================
@@ -161,8 +166,10 @@
     function updateFullscreenButton() {
         if (document.fullscreenElement) {
             fullscreenBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>`;
+            state.isFullscreen = true;
         } else {
             fullscreenBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
+            state.isFullscreen = false;
         }
     }
     
@@ -182,7 +189,6 @@
         document.querySelectorAll('.ctrl-btn .badge').forEach(el => {
             el.style.background = color;
         });
-        // Update loading spinner
         document.querySelector('.loading-spinner')?.style.setProperty('border-top-color', color);
     }
     
@@ -190,6 +196,42 @@
         state.isMuted = !state.isMuted;
         video.muted = state.isMuted;
         updateVolumeUI();
+    }
+    
+    // ============================================================
+    // 🎯 CONTROLS AUTO-HIDE (FIXED)
+    // ============================================================
+    
+    function showControls() {
+        controlsOverlay.classList.add('show');
+        state.controlsVisible = true;
+        resetControlsTimer();
+    }
+    
+    function hideControls() {
+        // Don't hide if:
+        if (video.paused) return;
+        if (settingsPanel.classList.contains('show')) return;
+        if (qualityDropdown.classList.contains('show')) return;
+        if (state.isDragging) return;
+        if (state.isHoveringControls) return;
+        if (volumeSlider.matches(':hover') || volumeSlider.matches(':focus')) return;
+        
+        controlsOverlay.classList.remove('show');
+        state.controlsVisible = false;
+    }
+    
+    function resetControlsTimer() {
+        if (state.controlsTimeout) {
+            clearTimeout(state.controlsTimeout);
+            state.controlsTimeout = null;
+        }
+        
+        if (!video.paused) {
+            state.controlsTimeout = setTimeout(() => {
+                hideControls();
+            }, 3000);
+        }
     }
     
     // ============================================================
@@ -208,7 +250,6 @@
         video.src = url;
         video.load();
         
-        // If HLS, use HLS.js
         if (url.includes('.m3u8') && typeof Hls !== 'undefined') {
             const hls = new Hls();
             hls.loadSource(url);
@@ -318,6 +359,68 @@
     // EVENT LISTENERS
     // ============================================================
     
+    // --- CONTROLS AUTO-HIDE EVENTS ---
+    
+    // Mouse movement on container
+    container.addEventListener('mousemove', function(e) {
+        showControls();
+        resetControlsTimer();
+    });
+    
+    // Mouse enter/leave container
+    container.addEventListener('mouseenter', function() {
+        showControls();
+    });
+    
+    container.addEventListener('mouseleave', function() {
+        if (!video.paused && !settingsPanel.classList.contains('show') && !qualityDropdown.classList.contains('show')) {
+            setTimeout(() => {
+                hideControls();
+            }, 500);
+        }
+    });
+    
+    // Hover over controls
+    controlsOverlay.addEventListener('mouseenter', function() {
+        state.isHoveringControls = true;
+        showControls();
+        if (state.controlsTimeout) {
+            clearTimeout(state.controlsTimeout);
+        }
+    });
+    
+    controlsOverlay.addEventListener('mouseleave', function() {
+        state.isHoveringControls = false;
+        resetControlsTimer();
+    });
+    
+    // Touch events for mobile
+    let touchCount = 0;
+    container.addEventListener('touchstart', function(e) {
+        touchCount++;
+        if (touchCount === 1) {
+            // Single tap - toggle controls
+            if (controlsOverlay.classList.contains('show')) {
+                if (!video.paused) {
+                    hideControls();
+                }
+            } else {
+                showControls();
+            }
+            setTimeout(() => { touchCount = 0; }, 500);
+        }
+        resetControlsTimer();
+    });
+    
+    container.addEventListener('touchmove', function() {
+        showControls();
+        resetControlsTimer();
+    });
+    
+    container.addEventListener('touchend', function() {
+        resetControlsTimer();
+    });
+    
     // --- VIDEO EVENTS ---
     video.addEventListener('loadedmetadata', function() {
         state.duration = this.duration;
@@ -354,16 +457,23 @@
             state.posterHidden = true;
         }
         hideLoading();
+        resetControlsTimer();
     });
     
     video.addEventListener('pause', function() {
         state.isPlaying = false;
         updatePlayButton();
+        showControls();
+        if (state.controlsTimeout) {
+            clearTimeout(state.controlsTimeout);
+            state.controlsTimeout = null;
+        }
     });
     
     video.addEventListener('ended', function() {
         state.isPlaying = false;
         updatePlayButton();
+        showControls();
         if (state.autoNext) {
             state.currentTime = 0;
             this.play().catch(() => {});
@@ -391,8 +501,13 @@
     });
     
     // --- PLAY/PAUSE ---
-    playPauseBtn.addEventListener('click', togglePlay);
-    video.addEventListener('click', togglePlay);
+    playPauseBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        togglePlay();
+    });
+    video.addEventListener('click', function(e) {
+        togglePlay();
+    });
     posterOverlay.addEventListener('click', function() {
         video.play().catch(() => {});
     });
@@ -407,37 +522,53 @@
         if (e.key === ' ' || e.key === 'Space') {
             e.preventDefault();
             togglePlay();
+            showControls();
         }
         if (e.key === 'f' || e.key === 'F') {
             toggleFullscreen();
+            showControls();
         }
         if (e.key === 'm' || e.key === 'M') {
             toggleMute();
+            showControls();
         }
         if (e.key === 'ArrowRight') {
             video.currentTime = Math.min(video.currentTime + 5, state.duration);
             e.preventDefault();
+            showControls();
+            resetControlsTimer();
         }
         if (e.key === 'ArrowLeft') {
             video.currentTime = Math.max(video.currentTime - 5, 0);
             e.preventDefault();
+            showControls();
+            resetControlsTimer();
         }
         if (e.key === 'ArrowUp') {
             state.volume = Math.min(1, state.volume + 0.1);
             video.volume = state.volume;
             updateVolumeUI();
             e.preventDefault();
+            showControls();
+            resetControlsTimer();
         }
         if (e.key === 'ArrowDown') {
             state.volume = Math.max(0, state.volume - 0.1);
             video.volume = state.volume;
             updateVolumeUI();
             e.preventDefault();
+            showControls();
+            resetControlsTimer();
         }
     });
     
     // --- VOLUME ---
-    volumeBtn.addEventListener('click', toggleMute);
+    volumeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleMute();
+        showControls();
+        resetControlsTimer();
+    });
     
     volumeSlider.addEventListener('input', function() {
         state.volume = parseFloat(this.value);
@@ -445,6 +576,16 @@
         video.muted = false;
         video.volume = state.volume;
         updateVolumeUI();
+        showControls();
+        resetControlsTimer();
+    });
+    
+    volumeSlider.addEventListener('mouseenter', function() {
+        showControls();
+    });
+    
+    volumeSlider.addEventListener('mouseleave', function() {
+        resetControlsTimer();
     });
     
     // --- PROGRESS BAR ---
@@ -454,6 +595,7 @@
         const percent = (e.clientX - rect.left) / rect.width;
         const time = percent * state.duration;
         video.currentTime = time;
+        showControls();
     });
     
     document.addEventListener('mousemove', function(e) {
@@ -467,7 +609,10 @@
     });
     
     document.addEventListener('mouseup', function() {
-        state.isDragging = false;
+        if (state.isDragging) {
+            state.isDragging = false;
+            resetControlsTimer();
+        }
     });
     
     // Touch support for progress
@@ -478,10 +623,29 @@
         const percent = (touch.clientX - rect.left) / rect.width;
         const time = percent * state.duration;
         video.currentTime = time;
+        showControls();
+    }, { passive: false });
+    
+    progressContainer.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+        const time = percent * state.duration;
+        video.currentTime = time;
+    }, { passive: false });
+    
+    progressContainer.addEventListener('touchend', function() {
+        resetControlsTimer();
     });
     
     // --- FULLSCREEN ---
-    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    fullscreenBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleFullscreen();
+        showControls();
+        resetControlsTimer();
+    });
     
     document.addEventListener('fullscreenchange', updateFullscreenButton);
     document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
@@ -490,6 +654,10 @@
     qualityBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         qualityDropdown.classList.toggle('show');
+        showControls();
+        if (state.controlsTimeout) {
+            clearTimeout(state.controlsTimeout);
+        }
     });
     
     qualityDropdown.querySelectorAll('.dropdown-item').forEach(item => {
@@ -499,84 +667,97 @@
             state.quality = this.dataset.quality;
             qualityBadge.textContent = state.quality === 'auto' ? 'HD' : state.quality;
             qualityDropdown.classList.remove('show');
+            resetControlsTimer();
         });
     });
     
-    document.addEventListener('click', function() {
-        qualityDropdown.classList.remove('show');
-        settingsPanel.classList.remove('show');
+    document.addEventListener('click', function(e) {
+        if (!qualityDropdown.contains(e.target) && e.target !== qualityBtn) {
+            qualityDropdown.classList.remove('show');
+        }
+        if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+            settingsPanel.classList.remove('show');
+        }
+        resetControlsTimer();
     });
     
     // --- SUBTITLES ---
-    subtitleBtn.addEventListener('click', function() {
+    subtitleBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
         state.subtitleTrack = (state.subtitleTrack + 1) % (PLAYER_CONFIG.subtitles.length + 1);
         subtitleBadge.style.display = state.subtitleTrack === 0 ? 'none' : 'block';
         if (state.subtitleTrack === 0) {
             subtitleDisplay.classList.remove('show');
         } else {
-            // Load selected subtitle
             const sub = PLAYER_CONFIG.subtitles[state.subtitleTrack - 1];
             if (sub && sub.src) {
                 loadSubtitles(sub.src);
             }
         }
+        showControls();
+        resetControlsTimer();
     });
     
     // --- WATCH PARTY ---
-    watchPartyBtn.addEventListener('click', toggleWatchParty);
+    watchPartyBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleWatchParty();
+        showControls();
+        resetControlsTimer();
+    });
     
     // --- CAST ---
-    castBtn.addEventListener('click', toggleCast);
+    castBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleCast();
+        showControls();
+        resetControlsTimer();
+    });
     
     // --- SETTINGS ---
     settingsBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         settingsPanel.classList.toggle('show');
+        showControls();
+        if (state.controlsTimeout) {
+            clearTimeout(state.controlsTimeout);
+        }
     });
     
     // Speed setting
-    speedSetting.addEventListener('click', function() {
+    speedSetting.addEventListener('click', function(e) {
+        e.stopPropagation();
         const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
         let idx = speeds.indexOf(state.playbackRate);
         idx = (idx + 1) % speeds.length;
         state.playbackRate = speeds[idx];
         video.playbackRate = state.playbackRate;
         this.textContent = state.playbackRate + 'x';
+        showControls();
+        resetControlsTimer();
     });
     
     // Auto next
-    autoNextSetting.addEventListener('click', function() {
+    autoNextSetting.addEventListener('click', function(e) {
+        e.stopPropagation();
         state.autoNext = !state.autoNext;
         this.textContent = state.autoNext ? 'On' : 'Off';
         this.style.color = state.autoNext ? '#4caf50' : '#8652bb';
+        showControls();
+        resetControlsTimer();
     });
     
     // Theme colors
     document.querySelectorAll('.color-dot').forEach(dot => {
-        dot.addEventListener('click', function() {
+        dot.addEventListener('click', function(e) {
+            e.stopPropagation();
             document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
             this.classList.add('active');
             const color = this.dataset.color;
             applyThemeColor('#' + color);
+            showControls();
+            resetControlsTimer();
         });
-    });
-    
-    // --- MOUSE MOVE SHOW CONTROLS ---
-    let controlsTimeout;
-    container.addEventListener('mousemove', function() {
-        controlsOverlay.classList.add('show');
-        clearTimeout(controlsTimeout);
-        controlsTimeout = setTimeout(() => {
-            if (state.isPlaying) {
-                controlsOverlay.classList.remove('show');
-            }
-        }, 3000);
-    });
-    
-    container.addEventListener('mouseleave', function() {
-        if (state.isPlaying) {
-            controlsOverlay.classList.remove('show');
-        }
     });
     
     // ============================================================
@@ -591,21 +772,17 @@
     // INIT
     // ============================================================
     function init() {
-        // Set poster and title
         if (PLAYER_CONFIG.posterUrl) {
             posterImage.src = PLAYER_CONFIG.posterUrl;
         }
         videoTitle.textContent = PLAYER_CONFIG.title;
         
-        // Apply initial theme
         applyThemeColor(PLAYER_CONFIG.themeColor);
         
-        // Set initial volume
         video.volume = PLAYER_CONFIG.volume;
         video.muted = false;
         updateVolumeUI();
         
-        // Load subtitles if configured
         if (PLAYER_CONFIG.subtitles.length > 0) {
             const defaultSub = PLAYER_CONFIG.subtitles.find(s => s.default);
             if (defaultSub && defaultSub.src) {
@@ -615,7 +792,6 @@
             }
         }
         
-        // Build quality options from config
         const dropdown = qualityDropdown;
         dropdown.innerHTML = '';
         PLAYER_CONFIG.qualities.forEach(q => {
@@ -626,18 +802,14 @@
             dropdown.appendChild(item);
         });
         
-        // Load video
         loadVideo(0);
-        
-        // Generate thumbnails
         generateThumbnails();
+        showControls();
         
         console.log('✅ Pro Video Player initialized');
         console.log(`📹 Video sources: ${PLAYER_CONFIG.videoUrls.length}`);
         console.log(`🎨 Theme: ${PLAYER_CONFIG.themeColor}`);
         console.log(`📝 Subtitles: ${PLAYER_CONFIG.subtitles.length}`);
-        
-        // Keyboard shortcuts help
         console.log('🎬 Keyboard Shortcuts:');
         console.log('  Space  - Play/Pause');
         console.log('  F      - Fullscreen');
@@ -646,7 +818,6 @@
         console.log('  ↑/↓    - Volume +/- 10%');
     }
     
-    // Start
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
@@ -671,13 +842,17 @@
         toggleWatchParty: toggleWatchParty,
         toggleCast: toggleCast,
         setThemeColor: applyThemeColor,
+        showControls: showControls,
+        hideControls: hideControls,
         destroy: () => {
             video.pause();
             video.src = '';
             video.load();
+            if (state.controlsTimeout) {
+                clearTimeout(state.controlsTimeout);
+            }
         },
         loadNewVideo: (urls, title, poster) => {
-            // Dynamically load a new video
             if (Array.isArray(urls)) {
                 PLAYER_CONFIG.videoUrls = urls;
             } else {
@@ -692,10 +867,12 @@
                 posterImage.src = poster;
             }
             loadVideo(0);
+            showControls();
         }
     };
     
     console.log('🎮 Player API available at window.player');
     console.log('📖 Usage: player.loadNewVideo(["url1", "url2"], "Title", "poster.jpg")');
+    console.log('📖 Controls: player.showControls() / player.hideControls()');
     
 })();

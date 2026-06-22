@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <title>Pro Video Player</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/player.css">
+</head>
+<body>
+    <div class="player-container" id="playerContainer">
+        <!-- VIDEO -->
+        <video id="mainVideo" playsinline webkit-playsinline x5-playsinline></video>
+        
+        <!-- SUBTITLE DISPLAY -->
+        <div class="subtitle-text" id="subtitleDisplay"></div>
+        
+        <!-- WATCH PARTY INDICATOR -->
+        <div class="watch-party-indicator" id="watchPartyIndicator">
+            <span class="dot"></span>
+            <span id="partyCount">0 watching</span>
+        </div>
+        
+        <!-- LOADING -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">Loading video...</p>
+        </div>
+        
+        <!-- POSTER -->
+        <div class="poster-overlay" id="posterOverlay">
+            <img id="posterImage" src="assets/poster.jpg" alt="Poster">
+            <div class="title" id="videoTitle">✨ Your Name</div>
+            <div class="play-icon" id="playButton">
+                <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+            </div>
+        </div>
+        
+        <!-- CONTROLS -->
+        <div class="controls-overlay" id="controlsOverlay">
+            <!-- Progress -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-buffer" id="progressBuffer"></div>
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <!-- Controls Row -->
+            <div class="controls-row">
+                <div class="controls-left">
+                    <!-- Play/Pause -->
+                    <button class="ctrl-btn" id="playPauseBtn" title="Play/Pause (Space)">
+                        <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+                    </button>
+                    
+                    <!-- Volume -->
+                    <div class="volume-container">
+                        <button class="ctrl-btn" id="volumeBtn" title="Mute">
+                            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                        </button>
+                        <div class="volume-slider">
+                            <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.8">
+                        </div>
+                    </div>
+                    
+                    <!-- Time -->
+                    <span class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span class="separator">/</span>
+                        <span id="duration">0:00</span>
+                    </span>
+                </div>
+                
+                <div class="controls-right">
+                    <!-- Subtitles -->
+                    <button class="ctrl-btn" id="subtitleBtn" title="Subtitles">
+                        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 6h16v2H4V6zm0 4h16v2H4v-2zm0 4h10v2H4v-2zm12 0h4v2h-4v-2z"/></svg>
+                        <span class="badge" id="subtitleBadge" style="display:none;">1</span>
+                    </button>
+                    
+                    <!-- Quality -->
+                    <div class="quality-selector">
+                        <button class="ctrl-btn" id="qualityBtn" title="Quality">
+                            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></svg>
+                            <span class="badge" id="qualityBadge">HD</span>
+                        </button>
+                        <div class="dropdown" id="qualityDropdown">
+                            <div class="dropdown-item active" data-quality="auto">Auto</div>
+                            <div class="dropdown-item" data-quality="1080p">1080p</div>
+                            <div class="dropdown-item" data-quality="720p">720p</div>
+                            <div class="dropdown-item" data-quality="480p">480p</div>
+                            <div class="dropdown-item" data-quality="360p">360p</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Watch Party -->
+                    <button class="ctrl-btn" id="watchPartyBtn" title="Watch Party">
+                        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </button>
+                    
+                    <!-- Chromecast -->
+                    <button class="ctrl-btn" id="castBtn" title="Cast">
+                        <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg>
+                    </button>
+                    
+                    <!-- Settings -->
+                    <button class="ctrl-btn" id="settingsBtn" title="Settings">
+                        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                    
+                    <!-- Fullscreen -->
+                    <button class="ctrl-btn" id="fullscreenBtn" title="Fullscreen (F)">
+                        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SETTINGS PANEL -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="setting-item">
+                <span class="setting-label">Playback Speed</span>
+                <span class="setting-value" id="speedSetting">1.0x</span>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Theme Color</span>
+                <div class="theme-colors">
+                    <span class="color-dot active" style="background:#8652bb;" data-color="8652bb"></span>
+                    <span class="color-dot" style="background:#e01621;" data-color="e01621"></span>
+                    <span class="color-dot" style="background:#2196f3;" data-color="2196f3"></span>
+                    <span class="color-dot" style="background:#4caf50;" data-color="4caf50"></span>
+                    <span class="color-dot" style="background:#ff9800;" data-color="ff9800"></span>
+                    <span class="color-dot" style="background:#ff4081;" data-color="ff4081"></span>
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">Auto Next</span>
+                <span class="setting-value" id="autoNextSetting">Off</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- HLS.js for streaming support -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <!-- JavaScript -->
+    <script src="js/config.js"></script>
+    <script src="js/player.js"></script>
+</body>
+</html>

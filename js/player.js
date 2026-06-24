@@ -1,5 +1,5 @@
 /* ============================================================
-   🎬 PRO VIDEO PLAYER - Core Logic (Fully Fixed)
+   🎬 PRO VIDEO PLAYER - Core Logic (With Quality Switching)
    ============================================================ */
 
 (function() {
@@ -69,7 +69,11 @@
         controlsTimeout: null,
         isMouseMoving: false,
         mouseMoveTimeout: null,
-        isHoveringControls: false
+        isHoveringControls: false,
+        currentQualityLevel: 'auto',
+        qualityLevels: [],
+        hlsInstance: null,
+        isSwitchingQuality: false
     };
     
     // ============================================================
@@ -199,7 +203,157 @@
     }
     
     // ============================================================
-    // 🎯 CONTROLS AUTO-HIDE (FIXED)
+    // 🎯 QUALITY SWITCHING
+    // ============================================================
+    
+    /**
+     * Switch video quality by loading a different video source
+     * @param {string} quality - 'auto', '1080p', '720p', '480p', '360p'
+     */
+    function switchQuality(quality) {
+        if (state.isSwitchingQuality) return;
+        if (quality === state.currentQualityLevel) return;
+        
+        state.isSwitchingQuality = true;
+        state.currentQualityLevel = quality;
+        
+        // Save current playback position
+        const currentTime = video.currentTime;
+        const wasPlaying = !video.paused;
+        
+        showLoading(`Switching to ${quality}...`);
+        
+        // Get the URL for the selected quality
+        let url;
+        if (quality === 'auto') {
+            // Use the first available source (auto)
+            url = PLAYER_CONFIG.videoUrls[0];
+            qualityBadge.textContent = 'HD';
+        } else {
+            // Find the URL for the selected quality from config
+            const qualitySource = PLAYER_CONFIG.qualitySources?.find(q => q.quality === quality);
+            if (qualitySource) {
+                url = qualitySource.url;
+                qualityBadge.textContent = quality.replace('p', '');
+            } else {
+                // Fallback: try to construct URL or use first source
+                url = PLAYER_CONFIG.videoUrls[0];
+                qualityBadge.textContent = quality.replace('p', '');
+            }
+        }
+        
+        // Update the video source
+        video.src = url;
+        video.load();
+        
+        // Once loaded, seek to the saved position
+        const onLoaded = function() {
+            video.removeEventListener('loadedmetadata', onLoaded);
+            
+            // Restore playback position
+            if (currentTime > 0) {
+                video.currentTime = currentTime;
+            }
+            
+            // Resume playback if it was playing
+            if (wasPlaying) {
+                video.play().catch(() => {});
+            }
+            
+            hideLoading();
+            state.isSwitchingQuality = false;
+            
+            // Update quality button text
+            updateQualityBadge();
+            
+            console.log(`✅ Switched to ${quality}`);
+        };
+        
+        video.addEventListener('loadedmetadata', onLoaded);
+        
+        // Timeout fallback
+        setTimeout(() => {
+            if (state.isSwitchingQuality) {
+                video.removeEventListener('loadedmetadata', onLoaded);
+                hideLoading();
+                state.isSwitchingQuality = false;
+                console.warn('⚠️ Quality switch timed out');
+            }
+        }, 15000);
+    }
+    
+    /**
+     * Switch quality for HLS streams
+     * @param {string} quality - 'auto', '1080p', '720p', '480p', '360p'
+     */
+    function switchHLSQuality(quality) {
+        if (!state.hlsInstance) {
+            console.warn('⚠️ No HLS instance found, using fallback');
+            switchQuality(quality);
+            return;
+        }
+        
+        try {
+            const hls = state.hlsInstance;
+            const levels = hls.levels;
+            
+            if (!levels || levels.length === 0) {
+                console.warn('⚠️ No HLS levels available');
+                return;
+            }
+            
+            state.currentQualityLevel = quality;
+            
+            if (quality === 'auto') {
+                // Auto quality - let HLS decide
+                hls.currentLevel = -1;
+                qualityBadge.textContent = 'HD';
+            } else {
+                // Find the level with matching height
+                const height = parseInt(quality.replace('p', ''));
+                let targetLevel = -1;
+                let closestDiff = Infinity;
+                
+                levels.forEach((level, index) => {
+                    if (level.height) {
+                        const diff = Math.abs(level.height - height);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            targetLevel = index;
+                        }
+                    }
+                });
+                
+                if (targetLevel >= 0) {
+                    hls.currentLevel = targetLevel;
+                    qualityBadge.textContent = quality.replace('p', '');
+                    console.log(`✅ Switched HLS to ${quality} (level ${targetLevel})`);
+                } else {
+                    console.warn(`⚠️ Quality ${quality} not found in HLS levels`);
+                    hls.currentLevel = -1; // Auto
+                    qualityBadge.textContent = 'HD';
+                }
+            }
+            
+            updateQualityBadge();
+            
+        } catch (error) {
+            console.error('❌ HLS quality switch error:', error);
+            // Fallback to source switching
+            switchQuality(quality);
+        }
+    }
+    
+    /**
+     * Update the quality badge display
+     */
+    function updateQualityBadge() {
+        const label = state.currentQualityLevel === 'auto' ? 'HD' : state.currentQualityLevel.replace('p', '');
+        qualityBadge.textContent = label;
+    }
+    
+    // ============================================================
+    // CONTROLS AUTO-HIDE
     // ============================================================
     
     function showControls() {
@@ -209,13 +363,13 @@
     }
     
     function hideControls() {
-        // Don't hide if:
         if (video.paused) return;
         if (settingsPanel.classList.contains('show')) return;
         if (qualityDropdown.classList.contains('show')) return;
         if (state.isDragging) return;
         if (state.isHoveringControls) return;
         if (volumeSlider.matches(':hover') || volumeSlider.matches(':focus')) return;
+        if (state.isSwitchingQuality) return;
         
         controlsOverlay.classList.remove('show');
         state.controlsVisible = false;
@@ -227,7 +381,7 @@
             state.controlsTimeout = null;
         }
         
-        if (!video.paused) {
+        if (!video.paused && !state.isSwitchingQuality) {
             state.controlsTimeout = setTimeout(() => {
                 hideControls();
             }, 3000);
@@ -250,11 +404,43 @@
         video.src = url;
         video.load();
         
+        // If HLS, use HLS.js
         if (url.includes('.m3u8') && typeof Hls !== 'undefined') {
-            const hls = new Hls();
+            if (state.hlsInstance) {
+                state.hlsInstance.destroy();
+            }
+            
+            const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                backbufferLength: 30
+            });
+            
             hls.loadSource(url);
             hls.attachMedia(video);
-            window._hls = hls;
+            state.hlsInstance = hls;
+            
+            // Setup HLS quality levels
+            hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+                console.log('📊 HLS manifest parsed, levels:', data.levels.length);
+                state.qualityLevels = data.levels;
+                
+                // Update quality dropdown with available levels
+                updateQualityDropdown(data.levels);
+                
+                // Set initial quality to auto
+                hls.currentLevel = -1;
+                qualityBadge.textContent = 'HD';
+            });
+            
+            // Monitor HLS errors
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                console.error('HLS Error:', data);
+                if (data.fatal) {
+                    console.warn('Fatal HLS error, attempting recovery...');
+                    hls.recoverMediaError();
+                }
+            });
         }
     }
     
@@ -264,6 +450,86 @@
             return true;
         }
         return false;
+    }
+    
+    // ============================================================
+    // QUALITY DROPDOWN
+    // ============================================================
+    
+    /**
+     * Update quality dropdown based on available HLS levels
+     */
+    function updateQualityDropdown(levels) {
+        const dropdown = qualityDropdown;
+        
+        // Clear existing items (keep auto)
+        dropdown.innerHTML = '';
+        
+        // Add Auto option
+        const autoItem = document.createElement('div');
+        autoItem.className = 'dropdown-item active';
+        autoItem.dataset.quality = 'auto';
+        autoItem.textContent = 'Auto (HD)';
+        dropdown.appendChild(autoItem);
+        
+        // Add available qualities from HLS levels
+        const qualities = new Set();
+        levels.forEach(level => {
+            if (level.height) {
+                qualities.add(`${level.height}p`);
+            }
+        });
+        
+        // Sort qualities from highest to lowest
+        const sortedQualities = Array.from(qualities).sort((a, b) => {
+            return parseInt(b) - parseInt(a);
+        });
+        
+        sortedQualities.forEach(quality => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.dataset.quality = quality;
+            item.textContent = quality;
+            dropdown.appendChild(item);
+        });
+        
+        // Also add manual quality sources if configured
+        if (PLAYER_CONFIG.qualitySources) {
+            PLAYER_CONFIG.qualitySources.forEach(q => {
+                // Check if this quality is already added
+                const exists = Array.from(dropdown.children).some(
+                    child => child.dataset.quality === q.quality
+                );
+                if (!exists && q.quality !== 'auto') {
+                    const item = document.createElement('div');
+                    item.className = 'dropdown-item';
+                    item.dataset.quality = q.quality;
+                    item.textContent = q.quality;
+                    dropdown.appendChild(item);
+                }
+            });
+        }
+        
+        // Add click handlers
+        dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+                dropdown.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+                this.classList.add('active');
+                const quality = this.dataset.quality;
+                
+                // Switch quality
+                if (state.hlsInstance) {
+                    switchHLSQuality(quality);
+                } else {
+                    switchQuality(quality);
+                }
+                
+                qualityDropdown.classList.remove('show');
+                resetControlsTimer();
+            });
+        });
+        
+        console.log('✅ Quality dropdown updated with', dropdown.children.length, 'options');
     }
     
     // ============================================================
@@ -360,14 +626,11 @@
     // ============================================================
     
     // --- CONTROLS AUTO-HIDE EVENTS ---
-    
-    // Mouse movement on container
-    container.addEventListener('mousemove', function(e) {
+    container.addEventListener('mousemove', function() {
         showControls();
         resetControlsTimer();
     });
     
-    // Mouse enter/leave container
     container.addEventListener('mouseenter', function() {
         showControls();
     });
@@ -380,7 +643,6 @@
         }
     });
     
-    // Hover over controls
     controlsOverlay.addEventListener('mouseenter', function() {
         state.isHoveringControls = true;
         showControls();
@@ -394,12 +656,11 @@
         resetControlsTimer();
     });
     
-    // Touch events for mobile
+    // Touch events
     let touchCount = 0;
     container.addEventListener('touchstart', function(e) {
         touchCount++;
         if (touchCount === 1) {
-            // Single tap - toggle controls
             if (controlsOverlay.classList.contains('show')) {
                 if (!video.paused) {
                     hideControls();
@@ -438,6 +699,7 @@
     
     video.addEventListener('canplay', function() {
         hideLoading();
+        state.isSwitchingQuality = false;
     });
     
     video.addEventListener('timeupdate', function() {
@@ -481,16 +743,20 @@
     });
     
     video.addEventListener('waiting', function() {
-        showLoading('Buffering...');
+        if (!state.isSwitchingQuality) {
+            showLoading('Buffering...');
+        }
     });
     
     video.addEventListener('canplaythrough', function() {
         hideLoading();
+        state.isSwitchingQuality = false;
     });
     
     video.addEventListener('error', function(e) {
         console.error('Video error:', this.error);
         state.errorCount++;
+        state.isSwitchingQuality = false;
         
         if (state.errorCount < 3 && tryNextSource()) {
             // Trying next source
@@ -505,7 +771,7 @@
         e.stopPropagation();
         togglePlay();
     });
-    video.addEventListener('click', function(e) {
+    video.addEventListener('click', function() {
         togglePlay();
     });
     posterOverlay.addEventListener('click', function() {
@@ -615,7 +881,6 @@
         }
     });
     
-    // Touch support for progress
     progressContainer.addEventListener('touchstart', function(e) {
         e.preventDefault();
         const touch = e.touches[0];
@@ -658,17 +923,6 @@
         if (state.controlsTimeout) {
             clearTimeout(state.controlsTimeout);
         }
-    });
-    
-    qualityDropdown.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', function() {
-            qualityDropdown.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
-            this.classList.add('active');
-            state.quality = this.dataset.quality;
-            qualityBadge.textContent = state.quality === 'auto' ? 'HD' : state.quality;
-            qualityDropdown.classList.remove('show');
-            resetControlsTimer();
-        });
     });
     
     document.addEventListener('click', function(e) {
@@ -724,7 +978,6 @@
         }
     });
     
-    // Speed setting
     speedSetting.addEventListener('click', function(e) {
         e.stopPropagation();
         const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -737,7 +990,6 @@
         resetControlsTimer();
     });
     
-    // Auto next
     autoNextSetting.addEventListener('click', function(e) {
         e.stopPropagation();
         state.autoNext = !state.autoNext;
@@ -747,7 +999,6 @@
         resetControlsTimer();
     });
     
-    // Theme colors
     document.querySelectorAll('.color-dot').forEach(dot => {
         dot.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -792,24 +1043,73 @@
             }
         }
         
+        // Setup quality dropdown with initial options
         const dropdown = qualityDropdown;
         dropdown.innerHTML = '';
+        
+        // Add Auto option
+        const autoItem = document.createElement('div');
+        autoItem.className = 'dropdown-item active';
+        autoItem.dataset.quality = 'auto';
+        autoItem.textContent = 'Auto (HD)';
+        dropdown.appendChild(autoItem);
+        
+        // Add quality options from config
         PLAYER_CONFIG.qualities.forEach(q => {
-            const item = document.createElement('div');
-            item.className = 'dropdown-item' + (q.value === 'auto' ? ' active' : '');
-            item.dataset.quality = q.value;
-            item.textContent = q.label;
-            dropdown.appendChild(item);
+            if (q.value !== 'auto') {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.dataset.quality = q.value;
+                item.textContent = q.label;
+                dropdown.appendChild(item);
+            }
+        });
+        
+        // Add quality sources if configured
+        if (PLAYER_CONFIG.qualitySources) {
+            PLAYER_CONFIG.qualitySources.forEach(q => {
+                if (q.quality !== 'auto') {
+                    const exists = Array.from(dropdown.children).some(
+                        child => child.dataset.quality === q.quality
+                    );
+                    if (!exists) {
+                        const item = document.createElement('div');
+                        item.className = 'dropdown-item';
+                        item.dataset.quality = q.quality;
+                        item.textContent = q.quality;
+                        dropdown.appendChild(item);
+                    }
+                }
+            });
+        }
+        
+        // Add click handlers for quality items
+        dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+                dropdown.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+                this.classList.add('active');
+                const quality = this.dataset.quality;
+                
+                if (state.hlsInstance) {
+                    switchHLSQuality(quality);
+                } else {
+                    switchQuality(quality);
+                }
+                
+                qualityDropdown.classList.remove('show');
+                resetControlsTimer();
+            });
         });
         
         loadVideo(0);
         generateThumbnails();
         showControls();
         
-        console.log('✅ Pro Video Player initialized');
+        console.log('✅ Pro Video Player initialized with quality switching');
         console.log(`📹 Video sources: ${PLAYER_CONFIG.videoUrls.length}`);
         console.log(`🎨 Theme: ${PLAYER_CONFIG.themeColor}`);
         console.log(`📝 Subtitles: ${PLAYER_CONFIG.subtitles.length}`);
+        console.log(`📊 Quality options: ${dropdown.children.length}`);
         console.log('🎬 Keyboard Shortcuts:');
         console.log('  Space  - Play/Pause');
         console.log('  F      - Fullscreen');
@@ -844,10 +1144,21 @@
         setThemeColor: applyThemeColor,
         showControls: showControls,
         hideControls: hideControls,
+        switchQuality: switchQuality,
+        switchHLSQuality: switchHLSQuality,
+        getQuality: () => state.currentQualityLevel,
+        getAvailableQualities: () => {
+            const items = qualityDropdown.querySelectorAll('.dropdown-item');
+            return Array.from(items).map(el => el.dataset.quality);
+        },
         destroy: () => {
             video.pause();
             video.src = '';
             video.load();
+            if (state.hlsInstance) {
+                state.hlsInstance.destroy();
+                state.hlsInstance = null;
+            }
             if (state.controlsTimeout) {
                 clearTimeout(state.controlsTimeout);
             }
@@ -866,13 +1177,17 @@
                 PLAYER_CONFIG.posterUrl = poster;
                 posterImage.src = poster;
             }
+            state.currentQualityLevel = 'auto';
+            qualityBadge.textContent = 'HD';
             loadVideo(0);
             showControls();
         }
     };
     
     console.log('🎮 Player API available at window.player');
-    console.log('📖 Usage: player.loadNewVideo(["url1", "url2"], "Title", "poster.jpg")');
-    console.log('📖 Controls: player.showControls() / player.hideControls()');
+    console.log('📖 Quality API:');
+    console.log('  player.switchQuality("720p") - Switch to 720p');
+    console.log('  player.getQuality() - Get current quality');
+    console.log('  player.getAvailableQualities() - List available qualities');
     
 })();
